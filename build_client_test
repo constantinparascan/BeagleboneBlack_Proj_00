@@ -1,0 +1,2 @@
+#!/bin/bash
+g++ -pthread -ggdb client_test.cpp library/network/SocketClient.cpp -o client_test
