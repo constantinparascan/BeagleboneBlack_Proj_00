@@ -19,7 +19,10 @@ int main(void)
     
     while(1)
     {
-        GPIO_Server->SS_Server_GPIO_Get_Message();
+        
+        GPIO_Server->SS_Server_GPIO_Connect_MessageQueue();
+        GPIO_Server->SS_Server_GPIO_Get_Message(); /* !!! BLOCKING !!! */
+        /* GPIO_Server->SS_Server_GPIO_Process_Message(); */
     }
     
     

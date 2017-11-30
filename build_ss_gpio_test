@@ -1,3 +1,3 @@
 #!/bin/bash
 g++ -pthread -ggdb library/gpio/GPIO.cpp library/gpio/util.cpp SS_Server_GPIO.cpp SS_Server_GPIO_Test.cpp -o SS_Server_GPIO_Test
-#g++ -pthread -ggdb SS_Server_GPIO_Test_Client.cpp -o SS_Server_GPIO_Test_Client
+g++ -pthread -ggdb SS_Server_GPIO_Test_Client.cpp -o SS_Server_GPIO_Test_Client

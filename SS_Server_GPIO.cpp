@@ -1,7 +1,9 @@
 
 #include <stdio.h>
+#include <sys/msg.h>
 
 #include "library/gpio/GPIO.h"
+
 
 
 #include "SS_Server_GPIO.h"
@@ -26,7 +28,7 @@ void SS_Server_GPIO::SS_Server_GPIO_Connect_MessageQueue(void)
      *  Receive queue 
      */
     
-    n_msgid = msgget((key_t)GPIO_COM_KEY_T_RECEIVE, 0666 | IPC_CREAT);
+    n_msgid = msgget((key_t)GPIO_COM_KEY_T_RECEIVE, 0666 | IPC_CREAT );
     
     if( n_msgid == -1 )
     {
@@ -51,7 +53,10 @@ void SS_Server_GPIO::SS_Server_GPIO_Get_Message(void)
     /* read from the queue */
     if( comm_msgid_rx != -1 )
     {
-        status = msgrcv(comm_msgid_rx, (void *)&comm_msgData, GPIO_COM_DATA_LENGTH, 0, 0);
+        
+        printf("\n\n\n\n Call msgrcv ... ");
+        status = msgrcv(comm_msgid_rx, (void *)&comm_msgData, sizeof(comm_msgData.GPIO_command), 0, /*IPC_NOWAIT*/0);
+        printf("\n msgrcv received a message ... ");
         
         /* a valid message has been extracted from the queue ? */
         if( status != -1 )
@@ -61,10 +66,17 @@ void SS_Server_GPIO::SS_Server_GPIO_Get_Message(void)
              * 
              */
             
-            printf("\n >>> Message received %d %d %d %d %d %d %d %d %d %d \n", comm_msgData.GPIO_command[0],
-                comm_msgData.GPIO_command[1], comm_msgData.GPIO_command[2], comm_msgData.GPIO_command[3],
-                comm_msgData.GPIO_command[4], comm_msgData.GPIO_command[5], comm_msgData.GPIO_command[6],
-                comm_msgData.GPIO_command[7], comm_msgData.GPIO_command[8], comm_msgData.GPIO_command[9]);
+            printf("\n >>> Message received %X %d %d %d %d %d %d %d %d %d \n", (unsigned char)comm_msgData.GPIO_command[0],
+                (unsigned char)comm_msgData.GPIO_command[1], (unsigned char)comm_msgData.GPIO_command[2], 
+                (unsigned char)comm_msgData.GPIO_command[3], (unsigned char)comm_msgData.GPIO_command[4], 
+                (unsigned char)comm_msgData.GPIO_command[5], (unsigned char)comm_msgData.GPIO_command[6],
+                (unsigned char)comm_msgData.GPIO_command[7], (unsigned char)comm_msgData.GPIO_command[8], 
+                (unsigned char)comm_msgData.GPIO_command[9]);
+            
+            /* process newly rceived message ...  */
+            printf("\n >>> start preocessing ... ");
+            SS_Server_GPIO_Process_Message();
+            printf("\n >>> end preocessing ... ");
         }
     }
 }
@@ -78,25 +90,45 @@ void SS_Server_GPIO::SS_Server_GPIO_Process_Message(void)
 {
     unsigned char nPinIdLocal = 0;
     
-    switch(comm_msgData.GPIO_command[0])
+    
+    printf("\n >> Process command value %X", (unsigned char)comm_msgData.GPIO_command[0]);
+    
+    switch((unsigned char)comm_msgData.GPIO_command[0])
     {
       
+        /* Skip command ... */
+        case 0xFF:
+        {
+            /*  ... Skip ... */
+            
+            printf(" \n\n Skip ... ");
+            
+            break;
+        }
+        
         /* 
          * Request PIN LOCK ...
          */
         case 0x10:
         {
+            
+            printf("\n Case 0x10 ... ");
             /* 
              * check to see if the Application ID is in valid range...  
              */
-            if( ( comm_msgData.GPIO_command[0] > 0x00 ) && ( comm_msgData.GPIO_command[0] < 0xFF ) && 
-              ( comm_msgData.GPIO_command[1] < DEVICE_MAX_IO_PINS ) )
+            
+            if( (unsigned char)comm_msgData.GPIO_command[1] < DEVICE_MAX_IO_PINS )
             {
-                PIN_Server_Prop[ comm_msgData.GPIO_command[1] ].b_isPinLocked = GPIO_TRUE;
+                /*
                 
-                PIN_Server_Prop[ comm_msgData.GPIO_command[1] ].n_ProcessOwner = comm_msgData.GPIO_command[0];
-                PIN_Server_Prop[ comm_msgData.GPIO_command[1] ].n_CountAliveness = DEVICE_MAX_ALIVE_MISSING_UNTIL_UNLOCK;
+                PIN_Server_Prop[ (unsigned char)comm_msgData.GPIO_command[1] ].b_isPinLocked = GPIO_TRUE;
+                
+                PIN_Server_Prop[ (unsigned char)comm_msgData.GPIO_command[1] ].n_ProcessOwner = (unsigned char)comm_msgData.GPIO_command[0];
+                PIN_Server_Prop[ (unsigned char)comm_msgData.GPIO_command[1] ].n_CountAliveness = DEVICE_MAX_ALIVE_MISSING_UNTIL_UNLOCK;
+                */
             }
+            
+            printf("\n >>> command 0x10 ");
             
             break;
         }
@@ -113,9 +145,13 @@ void SS_Server_GPIO::SS_Server_GPIO_Process_Message(void)
             if( ( comm_msgData.GPIO_command[0] > 0x00 ) && ( comm_msgData.GPIO_command[0] < 0xFF ) &&
                 ( comm_msgData.GPIO_command[1] < DEVICE_MAX_IO_PINS ) )
             {
+                /*
                 PIN_Server_Prop[ comm_msgData.GPIO_command[1] ].b_isPinLocked = GPIO_FALSE;
                 PIN_Server_Prop[ comm_msgData.GPIO_command[1] ].n_CountAliveness = DEVICE_ALIVE_COUNTER_STOPPED;
+                */
             }
+            
+            printf("\n >>> command 0x15 ");
             
             break;
         }
@@ -140,6 +176,7 @@ void SS_Server_GPIO::SS_Server_GPIO_Process_Message(void)
                   
                    nPinIdLocal = comm_msgData.GPIO_command[1];
                   
+                   /*
                    if( ( PIN_Server_Prop[ nPinIdLocal ].b_isPinLocked != GPIO_TRUE ) || 
                      ( ( PIN_Server_Prop[ nPinIdLocal ].b_isPinLocked == GPIO_TRUE )  && 
                        ( PIN_Server_Prop[ nPinIdLocal ].n_ProcessOwner == comm_msgData.GPIO_command[0] ) ) )
@@ -147,17 +184,20 @@ void SS_Server_GPIO::SS_Server_GPIO_Process_Message(void)
                         /* 
                          *  prepare to reconfigure pin ... 
                          */
-                        
+                    /*    
                         if( BoardPIN[ nPinIdLocal ] == NULL_PTR_GPIO )
                         {
                             BoardPIN[ nPinIdLocal ] = new GPIO ( nPinIdLocal );
                         }
                             
-                        BoardPIN[ nPinIdLocal ]->setDirection( (DIRECTION)comm_msgData.GPIO_command[2] );
+                        BoardPIN[ nPinIdLocal ]->setDirection( (GPIO::DIRECTION)comm_msgData.GPIO_command[2] );
                             
-                        BoardPIN[ nPinIdLocal ]->setValue( (VALUE)comm_msgData.GPIO_command[3] );
+                        BoardPIN[ nPinIdLocal ]->setValue( (GPIO::VALUE)comm_msgData.GPIO_command[3] );
                     }
+                    */
               }
+              
+            printf("\n >>> command 0x20 ");
                 
             break;
         }
@@ -180,6 +220,7 @@ void SS_Server_GPIO::SS_Server_GPIO_Process_Message(void)
                   
                    nPinIdLocal = comm_msgData.GPIO_command[1];
                   
+                   /*
                    if( ( PIN_Server_Prop[ nPinIdLocal ].b_isPinLocked != GPIO_TRUE ) || 
                      ( ( PIN_Server_Prop[ nPinIdLocal ].b_isPinLocked == GPIO_TRUE )  && 
                        ( PIN_Server_Prop[ nPinIdLocal ].n_ProcessOwner == comm_msgData.GPIO_command[0] ) ) )
@@ -187,19 +228,34 @@ void SS_Server_GPIO::SS_Server_GPIO_Process_Message(void)
                         /* 
                          *  prepare to reconfigure pin ... 
                          */
-                        
+                    /*    
                         if( BoardPIN[ nPinIdLocal ] != NULL_PTR_GPIO )
                         {
-                            BoardPIN[ nPinIdLocal ]->setValue( (VALUE)comm_msgData.GPIO_command[2] );
+                            BoardPIN[ nPinIdLocal ]->setValue( (GPIO::VALUE)comm_msgData.GPIO_command[2] );
                         }
                     }
+                    */
               }
+                
+            printf("\n >>> command 0x30 ");
                 
             break;
         }
         
+        default:
+        {
+            /* invalid command */
+            
+            printf("\n Default reached !!!");
+            
+            break;
+        }
         
     }
+    
+    /* next command will be " skip " ... */
+    comm_msgData.GPIO_command[0] = 0xFF;
+
     
 }
 
